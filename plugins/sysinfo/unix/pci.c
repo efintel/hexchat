@@ -27,7 +27,7 @@
 #include <pci/pci.h>
 #include <glib.h>
 
-#include "xsys.h"
+#include "sysinfo.h"
 
 static struct pci_filter filter;       /* Device filter */
 static struct pci_access *pacc;
@@ -117,13 +117,14 @@ void pci_find_fullname(char *fullname, char *vendor, char *device)
 	char *position;
 	int cardfound = 0;
 	FILE *fp;
+	
+	if (!sysinfo_get_pref ("pciids", buffer))
+		strcpy (buffer, DEFAULT_PCIIDS);
 
-	sysinfo_get_pciids (buffer);
 	fp = fopen (buffer, "r");
-
 	if(fp == NULL) {
 		g_snprintf(fullname, bsize, "%s:%s", vendor, device);
-		sysinfo_print_error ("pci.ids file not found! You might want to adjust your pciids setting with /SYSINFO SET pciids (you can query its current value with /SYSINFO LIST).\n");
+		//sysinfo_print_error ("pci.ids file not found! You might want to adjust your pciids setting with /SYSINFO SET pciids (you can query its current value with /SYSINFO LIST).\n");
 		return;
 	}
 

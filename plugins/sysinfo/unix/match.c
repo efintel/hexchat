@@ -23,13 +23,9 @@
 #include <ctype.h>
 #include <unistd.h>
 #include <glib.h>
-#include "xsys.h"
+#include "sysinfo.h"
 
-float percentage(unsigned long long *free, unsigned long long *total)
-{
-        unsigned long long result = (*free) * (unsigned long long)1000 / (*total);
-        return result / 10.0;
-}
+#define delims ":="
 
 char *pretty_freespace(const char *desc, unsigned long long *free_k, unsigned long long *total_k)
 {
@@ -51,14 +47,9 @@ char *pretty_freespace(const char *desc, unsigned long long *free_k, unsigned lo
 		free_space = free_space / 1024;
 		total_space = total_space / 1024;
 	}
-	if (sysinfo_get_percent () != 0)
-		g_snprintf(result, bsize, "%s: %.1f%s, %.1f%% free",
-		desc, total_space, *quantity,
-		percentage(free_k, total_k));
-	else
-		g_snprintf(result, bsize, "%s: %.1f%s/%.1f%s free",
-		desc, free_space, *quantity, total_space, *quantity);
-        return result;
+	g_snprintf(result, bsize, "%s: %.1f%s/%.1f%s free",
+	desc, free_space, *quantity, total_space, *quantity);
+	return result;
 }
 
 
@@ -73,21 +64,6 @@ void remove_leading_whitespace(char *buffer)
 	;
 
 	memmove (buffer, p, strlen (p) + 1);
-}
-
-char *decruft_filename(char *buffer)
-{
-	char *match, *match_end;
-
-	while ((match = strstr(buffer, "%20")))
-	{
-		match_end = match + 3;
-		*match++ = ' ';
-		while (*match_end)
-			*match++ = *match_end++;
-		*match = 0;
-	}
-	return buffer;
 }
 
 void find_match_char(char *buffer, char *match, char *result)
@@ -173,56 +149,3 @@ void find_match_ll(char *buffer, char *match, unsigned long long *result)
 		}
 }
 
-void format_output(const char *arg, char *string, char *format)
-{
-        char *pos1, *pos2, buffer[bsize];
-        pos1 = &format[0];
-        strncpy(buffer, string, bsize);
-        string[0] = '\0';
-
-        while((pos2 = strstr(pos1, "%")) != NULL)
-        {
-                strncat(string, pos1, (size_t)(pos2-pos1));
-                if(*(pos2+1) == '1')
-                        strcat(string, arg);
-                else if(*(pos2+1) == '2')
-                        strcat(string, buffer);
-                else if(*(pos2+1) == 'C' || *(pos2+1) == 'c')
-                        strcat(string, "\003");
-                else if(*(pos2+1) == 'B' || *(pos2+1) == 'b')
-                        strcat(string, "\002");
-                else if(*(pos2+1) == 'R' || *(pos2+1) == 'r')
-                        strcat(string, "\026");
-                else if(*(pos2+1) == 'O' || *(pos2+1) == 'o')
-                        strcat(string, "\017");
-                else if(*(pos2+1) == 'U' || *(pos2+1) == 'u')
-                        strcat(string, "\037");
-                else if(*(pos2+1) == '%')
-                        strcat(string, "%");
-                pos1=pos2+2;
-        }
-
-        strcat(string, pos1);
-}
-
-void flat_format_output(const char *arg, char *string, char *format)
-{
-        char *pos1, *pos2, buffer[bsize];
-        pos1 = &format[0];
-        strncpy(buffer, string, bsize);
-        string[0] = '\0';
-
-        while((pos2 = strstr(pos1, "%")) != NULL)
-        {
-                strncat(string, pos1, (size_t)(pos2-pos1));
-                if(*(pos2+1) == '1')
-                        strcat(string, arg);
-                else if(*(pos2+1) == '2')
-                        strcat(string, buffer);
-                else if(*(pos2+1) == '%')
-                        strcat(string, "%");
-                pos1=pos2+2;
-        }
-
-        strcat(string, pos1);
-}
