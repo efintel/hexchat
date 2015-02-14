@@ -137,7 +137,7 @@ static int
 sysinfo_cb (char *word[], char *word_eol[], void *userdata)
 {
 	gboolean announce = sysinfo_get_announce ();
-	int offset = 0;
+	int offset = 0, channel_type;
 	char *cmd;
 
 	/* Allow overriding global announce setting */
@@ -153,7 +153,8 @@ sysinfo_cb (char *word[], char *word_eol[], void *userdata)
 	}
 
 	/* Cannot send to server tab */
-	if (hexchat_list_int (ph, NULL, "type") == 1)
+	channel_type = hexchat_list_int (ph, NULL, "type");
+	if (channel_type != 2 /* SESS_CHANNEL */ || channel_type != 3 /* SESS_DIALOG */)
 		announce = FALSE;
 
 	cmd = g_ascii_strup (word[2+offset], -1);

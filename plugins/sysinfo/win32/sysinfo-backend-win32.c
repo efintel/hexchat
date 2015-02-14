@@ -26,15 +26,6 @@
 
 #include <glib.h>
 
-#include "hexchat-plugin.h"
-
-static hexchat_plugin *ph;   /* plugin handle */
-
-static char name[] = "SysInfo";
-static char desc[] = "Display info about your hardware and OS";
-static char version[] = "1.1";
-static char helptext[] = "USAGE: /SYSINFO - Sends info about your hardware and OS to current channel.";
-
 /* Cache the info for subsequent invocations of /SYSINFO */
 static int cpu_arch = 0;
 static char *os_name = NULL;
@@ -66,108 +57,34 @@ char *get_memory_info (void);
 char *bstr_to_utf8 (BSTR bstr);
 guint64 variant_to_uint64 (VARIANT *variant);
 
-int hexchat_plugin_init (hexchat_plugin *plugin_handle, char **plugin_name, char **plugin_desc, char **plugin_version, char *arg)
+char *
+sysinfo_backend_get_sound (void)
 {
-	ph = plugin_handle;
-
-	*plugin_name = name;
-	*plugin_desc = desc;
-	*plugin_version = version;
-
-	hexchat_hook_command (ph, "SYSINFO", HEXCHAT_PRI_NORM, command_callback, helptext, NULL);
-	hexchat_command (ph, "MENU -ishare\\system.png ADD \"Window/Send System Info\" \"SYSINFO\"");
-
-	hexchat_printf (ph, "%s plugin loaded\n", name);
-
-	return 1;
+	return NULL;
 }
 
-int hexchat_plugin_deinit (void)
+char *
+sysinfo_backend_get_network (void)
 {
-	g_free (os_name);
-	g_free (cpu_info);
-	g_free (vga_name);
-
-	hexchat_command (ph, "MENU DEL \"Window/Display System Info\"");
-	hexchat_printf (ph, "%s plugin unloaded\n", name);
-
-	return 1;
+	return NULL;
 }
 
-static int command_callback (char *word[], char *word_eol[], void *user_data)
+char *
+sysinfo_backend_get_uptime (void)
 {
-	print_info ();
-
-	return HEXCHAT_EAT_HEXCHAT;
+	return g_strdup_printf ("%.2f Hours", (float)GetTickCount64 () / 1000 / 60 / 60);
 }
 
-static void print_info (void)
+char *
+sysinfo_backend_get_disk (void)
 {
-	char *memory_info;
 	char *hdd_info;
-	int channel_type;
-
-#ifdef _WIN64
-	const char *build_arch = "x64";
-#else
-	const char *build_arch = "x86";
-#endif
-
-	/* Load information if not already loaded */
-
-	if (cpu_arch == 0)
-	{
-		cpu_arch = get_cpu_arch ();
-	}
-
-	if (os_name == NULL)
-	{
-		os_name = query_wmi (QUERY_WMI_OS);
-		if (os_name == NULL)
-		{
-			hexchat_printf (ph, "%s - Error while getting OS info.\n", name);
-			os_name = g_strdup ("Unknown");
-		}
-	}
-
-	if (cpu_info == NULL)
-	{
-		cpu_info = query_wmi (QUERY_WMI_CPU);
-		if (cpu_info == NULL)
-		{
-			hexchat_printf (ph, "%s - Error while getting CPU info.\n", name);
-			cpu_info = g_strdup ("Unknown");
-		}
-	}
-
-	if (vga_name == NULL)
-	{
-		vga_name = query_wmi (QUERY_WMI_VGA);
-		if (vga_name == NULL)
-		{
-			hexchat_printf (ph, "%s - Error while getting VGA info.\n", name);
-			vga_name = g_strdup ("Unknown");
-		}
-	}
-
-	/* Memory information is always loaded dynamically since it includes the current amount of free memory */
-	memory_info = get_memory_info ();
-	if (memory_info == NULL)
-	{
-		hexchat_printf (ph, "%s - Error while getting memory info.\n", name);
-		memory_info = g_strdup ("Unknown");
-	}
 
 	/* HDD information is always loaded dynamically since it includes the current amount of free space */
 	hdd_capacity = 0;
 	hdd_free_space = 0;
 	hdd_info = query_wmi (QUERY_WMI_HDD);
-	if (hdd_info == NULL)
-	{
-		hexchat_printf (ph, "%s - Error while getting disk info.\n", name);
-		hdd_info = g_strdup ("Unknown");
-	}
-	else
+	if (hdd_info)
 	{
 		gfloat total_gb = hdd_capacity / 1000.f / 1000.f / 1000.f;
 		gfloat used_gb = (hdd_capacity - hdd_free_space) / 1000.f / 1000.f / 1000.f;
@@ -175,32 +92,44 @@ static void print_info (void)
 		hdd_info = g_strdup_printf ("%.2f GB / %.2f GB (%.2f GB Free)", used_gb, total_gb, free_gb);
 	}
 
-	channel_type = hexchat_list_int (ph, NULL, "type");
-	if (channel_type == 2 /* SESS_CHANNEL */ || channel_type == 3 /* SESS_DIALOG */)
-	{
-		hexchat_commandf (
-			ph,
-			"ME ** SysInfo ** Client: HexChat %s (%s) ** OS: %s (x%d) ** CPU: %s ** RAM: %s ** VGA: %s ** HDD: %s ** Uptime: %.2f Hours **",
-			hexchat_get_info (ph, "version"), build_arch,
-			os_name, cpu_arch,
-			cpu_info,
-			memory_info,
-			vga_name,
-			hdd_info,
-			(float) GetTickCount64 () / 1000 / 60 / 60);
-	}
-	else
-	{
-		hexchat_printf (ph, " * Client:  HexChat %s (%s)\n", hexchat_get_info (ph, "version"), build_arch);
-		hexchat_printf (ph, " * OS:      %s (x%d)\n", os_name, cpu_arch);
-		hexchat_printf (ph, " * CPU:     %s\n", cpu_info);
-		hexchat_printf (ph, " * RAM:     %s\n", memory_info);
-		hexchat_printf (ph, " * VGA:     %s\n", vga_name);
-		hexchat_printf (ph, " * HDD:     %s\n", hdd_info);
-		hexchat_printf (ph, " * Uptime:  %.2f Hours\n", (float) GetTickCount64 () / 1000 / 60 / 60);
-	}
+	return hdd_info;
+}
 
-	g_free (memory_info);
+char *
+sysinfo_backend_get_cpu (void)
+{
+	if (cpu_info == NULL)
+		cpu_info = query_wmi (QUERY_WMI_CPU);
+
+	return g_strdup (cpu_info);
+}
+
+char *
+sysinfo_backend_get_memory (void)
+{
+	/* Memory information is always loaded dynamically since it includes the current amount of free memory */
+	return get_memory_info ();
+}
+
+char *
+sysinfo_backend_get_gpu (void)
+{
+	if (vga_name == NULL)
+		vga_name = query_wmi (QUERY_WMI_VGA);
+
+	return g_strdup (vga_name);
+}
+
+char *
+sysinfo_backend_get_os (void)
+{
+	if (os_name == NULL)
+		os_name = query_wmi (QUERY_WMI_OS);
+
+	if (cpu_arch == 0)
+		cpu_arch = get_cpu_arch ();
+
+	return g_strdup_printf ("%s (x%d)", os_name, cpu_arch);
 }
 
 static int get_cpu_arch (void)
